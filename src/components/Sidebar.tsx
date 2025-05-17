@@ -1,276 +1,262 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     Layout,
-    Menu,
     Button,
+    Avatar,
     Modal,
     Input,
+    Menu,
     message,
-    Dropdown,
-    theme,
 } from 'antd';
 import {
     PlusOutlined,
-    EditOutlined,
-    DeleteOutlined,
-    LogoutOutlined,
     UserOutlined,
-    MenuOutlined,
+    EditOutlined,
+    DownloadOutlined,
+    InboxOutlined,
+    DeleteOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useDrag, useDrop } from 'react-dnd';
 import ChatSearch from './ChatSearch';
+import SidebarItem from './SidebarItem';
+import update from 'immutability-helper';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { saveAs } from 'file-saver';
+import './Sidebar.css';
 
 const { Sider } = Layout;
 
-interface Chat {
+export interface ChatType {
+    id: number;
     name: string;
-    messages: string[];
 }
 
 interface SidebarProps {
-    chats: Chat[];
-    selectedChatIndex: number | null;
-    onSelectChat: (index: number) => void;
-    onDeleteChat: (index: number) => void;
-    onRenameChat: (index: number, newName: string) => void;
-    onCreateChat: (name: string) => void;
-    onReorderChats: (dragIndex: number, hoverIndex: number) => void;
+    collapsed: boolean;
+    themeMode: 'light' | 'dark';
 }
 
-interface DragItem {
-    index: number;
-    type: 'chat';
-}
-
-const Sidebar: React.FC<SidebarProps> = ({
-                                             chats,
-                                             selectedChatIndex,
-                                             onSelectChat,
-                                             onDeleteChat,
-                                             onRenameChat,
-                                             onCreateChat,
-                                             onReorderChats,
-                                         }) => {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [isRenameModalVisible, setIsRenameModalVisible] = useState(false);
-    const [newChatInputValue, setNewChatInputValue] = useState('');
-    const [renameInputValue, setRenameInputValue] = useState('');
-    const [renameIndex, setRenameIndex] = useState<number | null>(null);
-    const [isUserModalVisible, setIsUserModalVisible] = useState(false);
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, themeMode }) => {
+    const [chats, setChats] = useState<ChatType[]>([]);
+    const [activeChat, setActiveChat] = useState<number | null>(null);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [renameModalVisible, setRenameModalVisible] = useState(false);
+    const [chatToRename, setChatToRename] = useState<ChatType | null>(null);
+    const [newChatName, setNewChatName] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const navigate = useNavigate();
-    const { token } = theme.useToken();
+    const isDark = themeMode === 'dark';
 
-    const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+    const generateUniqueId = () => Date.now();
 
     const handleCreateChat = () => {
-        const trimmed = newChatInputValue.trim();
-        if (trimmed) {
-            if (chats.some(chat => chat.name === trimmed)) {
-                message.warning('Чат с таким названием уже существует');
-                return;
-            }
-            onCreateChat(trimmed);
-            setNewChatInputValue('');
-            setIsCreateModalVisible(false);
-        }
+        const newChat: ChatType = {
+            id: generateUniqueId(),
+            name: `Новый чат ${chats.length + 1}`,
+        };
+        setChats(prev => [newChat, ...prev]);
+        setActiveChat(newChat.id);
+        navigate(`/chat/${newChat.id}`);
     };
 
-    const handleRename = () => {
-        if (renameIndex !== null && renameInputValue.trim()) {
-            onRenameChat(renameIndex, renameInputValue.trim());
-            setRenameInputValue('');
-            setRenameIndex(null);
-            setIsRenameModalVisible(false);
-        }
+    const exportChatToMarkdown = (chat: ChatType) => {
+        const markdown = `# Чат: ${chat.name}\n\n*Это пример содержимого чата.*`;
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        saveAs(blob, `${chat.name}.md`);
     };
 
-    const sortedChats = useMemo(() => {
-        return [...chats].sort((a, b) => {
-            const aTime = a.messages?.length ? a.messages[a.messages.length - 1] : '';
-            const bTime = b.messages?.length ? b.messages[b.messages.length - 1] : '';
-            return bTime.localeCompare(aTime);
-        });
+    const moveChat = useCallback((dragIndex: number, hoverIndex: number) => {
+        const draggedChat = chats[dragIndex];
+        setChats(
+            update(chats, {
+                $splice: [
+                    [dragIndex, 1],
+                    [hoverIndex, 0, draggedChat],
+                ],
+            })
+        );
     }, [chats]);
 
-    const renderDraggableItem = (chat: Chat, index: number) => {
-        const ref = useRef<HTMLDivElement>(null);
-
-        const [, drop] = useDrop<DragItem>({
-            accept: 'chat',
-            hover: (item) => {
-                if (item.index !== index) {
-                    onReorderChats(item.index, index);
-                    item.index = index;
-                }
-            },
-        });
-
-        const [{ isDragging }, drag] = useDrag({
-            type: 'chat',
-            item: { index, type: 'chat' },
-            collect: (monitor) => ({
-                isDragging: monitor.isDragging(),
-            }),
-        });
-
-        drag(drop(ref));
-
-        return (
-            <div
-                key={chat.name}
-                ref={ref}
-                style={{
-                    opacity: isDragging ? 0.5 : 1,
-                    padding: '4px 12px',
-                    cursor: 'move',
-                    backgroundColor:
-                        selectedChatIndex === index
-                            ? token.colorPrimaryBg
-                            : 'transparent',
-                    borderRadius: 4,
-                    marginBottom: 4,
-                }}
-            >
-                <Dropdown
-                    overlay={
-                        <Menu>
-                            <Menu.Item
-                                icon={<EditOutlined />}
-                                onClick={() => {
-                                    setRenameIndex(index);
-                                    setRenameInputValue(chat.name);
-                                    setIsRenameModalVisible(true);
-                                }}
-                            >
-                                Переименовать
-                            </Menu.Item>
-                            <Menu.Item
-                                icon={<DeleteOutlined />}
-                                onClick={() => onDeleteChat(index)}
-                            >
-                                Удалить
-                            </Menu.Item>
-                        </Menu>
-                    }
-                    trigger={['contextMenu']}
-                >
-                    <div
-                        onClick={() => onSelectChat(index)}
-                        style={{
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}
-                    >
-                        {chat.name}
-                    </div>
-                </Dropdown>
-            </div>
-        );
+    const handleMenuClick = (key: string, chat: ChatType) => {
+        switch (key) {
+            case 'delete':
+                Modal.confirm({
+                    title: `Удалить чат "${chat.name}"?`,
+                    content: 'Это действие нельзя отменить. Вы уверены?',
+                    okText: 'Удалить',
+                    okType: 'danger',
+                    cancelText: 'Отмена',
+                    onOk() {
+                        setChats(prev => prev.filter(c => c.id !== chat.id));
+                        if (activeChat === chat.id) setActiveChat(null);
+                        message.success(`Чат "${chat.name}" удалён`);
+                    },
+                });
+                break;
+            case 'rename':
+                setChatToRename(chat);
+                setNewChatName(chat.name);
+                setRenameModalVisible(true);
+                break;
+            case 'export':
+                exportChatToMarkdown(chat);
+                break;
+            case 'archive':
+                message.info(`Архивировать чат: ${chat.name}`);
+                break;
+        }
     };
 
+    const renderDropdownMenu = (chat: ChatType) => (
+        <Menu
+            onClick={({ key }) => handleMenuClick(key, chat)}
+            items={[
+                { key: 'rename', icon: <EditOutlined />, label: 'Переименовать' },
+                { key: 'export', icon: <DownloadOutlined />, label: 'Экспортировать' },
+                { key: 'archive', icon: <InboxOutlined />, label: 'Архивировать' },
+                { type: 'divider' },
+                { key: 'delete', icon: <DeleteOutlined />, label: 'Удалить', danger: true },
+            ]}
+        />
+    );
+
+    const filteredChats = chats.filter(chat =>
+        chat.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <>
+        <DndProvider backend={HTML5Backend}>
             <Sider
-                collapsible
-                collapsed={isCollapsed}
-                onCollapse={toggleCollapse}
-                width={250}
-                style={{
-                    background: token.colorBgBase,
-                    padding: '12px 8px',
-                    overflowY: 'auto',
-                }}
+                width={300}
+                collapsedWidth={0}
+                collapsed={collapsed}
+                trigger={null}
+                className={`custom-sidebar ${isDark ? 'dark' : 'light'}`}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <ChatSearch onSearch={() => {}} />
-                </div>
-                {sortedChats.map((chat, index) => renderDraggableItem(chat, index))}
+                <div className="sidebar-container">
+                    {!collapsed && <div className="sidebar-header">ChatBot</div>}
 
-                <div style={{ marginTop: 16 }}>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setIsCreateModalVisible(true)}
-                        block
-                    >
-                        {!isCollapsed && 'Создать чат'}
-                    </Button>
-                </div>
-
-                <div style={{ marginTop: 16 }}>
-                    <Dropdown
-                        overlay={
-                            <Menu>
-                                <Menu.Item
-                                    icon={<UserOutlined />}
-                                    onClick={() => setIsUserModalVisible(true)}
-                                >
-                                    Профиль
-                                </Menu.Item>
-                                <Menu.Item
-                                    icon={<LogoutOutlined />}
-                                    onClick={() => navigate('/logout')}
-                                >
-                                    Выйти
-                                </Menu.Item>
-                            </Menu>
-                        }
-                    >
-                        <Button icon={<MenuOutlined />} block>
-                            {!isCollapsed && 'Меню'}
+                    <div className="sidebar-button">
+                        <Button
+                            type="primary"
+                            block
+                            icon={<PlusOutlined />}
+                            onClick={handleCreateChat}
+                            style={{
+                                background: isDark ? '#444' : undefined,
+                                borderColor: isDark ? '#666' : undefined,
+                            }}
+                        >
+                            Новый чат
                         </Button>
-                    </Dropdown>
+                    </div>
+
+                    <ChatSearch
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        themeMode={themeMode}
+                    />
+
+                    <div className="sidebar-chat-list">
+                        {filteredChats.length === 0 ? (
+                            <div className="sidebar-empty">Чаты не найдены</div>
+                        ) : (
+                            filteredChats.map((chat, index) => (
+                                <SidebarItem
+                                    key={chat.id}
+                                    id={chat.id}
+                                    index={index}
+                                    name={chat.name}
+                                    isActive={chat.id === activeChat}
+                                    collapsed={collapsed}
+                                    themeMode={themeMode}
+                                    moveChat={moveChat}
+                                    onClick={() => {
+                                        setActiveChat(chat.id);
+                                        navigate(`/chat/${chat.id}`);
+                                    }}
+                                    dropdown={renderDropdownMenu(chat)}
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {!collapsed && (
+                        <div className="sidebar-user" onClick={() => setIsModalVisible(true)}>
+                            <div className="avatar-wrapper">
+                                <Avatar size="large" icon={<UserOutlined />} />
+                                <div className="status-indicator" />
+                            </div>
+                            <div className="user-info">
+                                <div className="user-name">Александр Иванов</div>
+                                <div className="user-email">alexander@email.com</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
+
+                {/* Модальные окна */}
+                <Modal
+                    title="Информация о пользователе"
+                    open={isModalVisible}
+                    onCancel={() => setIsModalVisible(false)}
+                    footer={null}
+                    className={isDark ? 'dark-modal' : ''}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+                        <Avatar size={64} icon={<UserOutlined />} style={{ marginRight: 16 }} />
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: 16 }}>
+                                Александр Иванов
+                            </div>
+                            <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>
+                                Руководитель проектов
+                            </div>
+                            <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>
+                                alexander@email.com
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <Button block>Импортировать чаты</Button>
+                        <Button type="primary" block onClick={() => setIsModalVisible(false)}>
+                            Закрыть
+                        </Button>
+                    </div>
+                </Modal>
+
+                <Modal
+                    title="Переименовать чат"
+                    open={renameModalVisible}
+                    onCancel={() => setRenameModalVisible(false)}
+                    onOk={() => {
+                        if (!newChatName.trim()) {
+                            message.error('Название чата не может быть пустым');
+                            return;
+                        }
+                        if (chatToRename) {
+                            setChats((prev) =>
+                                prev.map((c) =>
+                                    c.id === chatToRename.id ? { ...c, name: newChatName } : c
+                                )
+                            );
+                        }
+                        setRenameModalVisible(false);
+                    }}
+                    okText="Сохранить"
+                    cancelText="Отмена"
+                    className={isDark ? 'dark-modal' : ''}
+                >
+                    <Input
+                        value={newChatName}
+                        onChange={(e) => setNewChatName(e.target.value)}
+                        placeholder="Введите новое название чата"
+                        maxLength={50}
+                    />
+                </Modal>
             </Sider>
-
-            <Modal
-                title="Новый чат"
-                open={isCreateModalVisible}
-                onOk={handleCreateChat}
-                onCancel={() => setIsCreateModalVisible(false)}
-                okText="Создать"
-                cancelText="Отмена"
-            >
-                <Input
-                    value={newChatInputValue}
-                    onChange={e => setNewChatInputValue(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCreateChat()}
-                    autoFocus
-                    placeholder="Введите название чата"
-                />
-            </Modal>
-
-            <Modal
-                title="Переименовать чат"
-                open={isRenameModalVisible}
-                onOk={handleRename}
-                onCancel={() => setIsRenameModalVisible(false)}
-                okText="Переименовать"
-                cancelText="Отмена"
-            >
-                <Input
-                    value={renameInputValue}
-                    onChange={e => setRenameInputValue(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleRename()}
-                    autoFocus
-                    placeholder="Новое название чата"
-                />
-            </Modal>
-
-            <Modal
-                title="Профиль пользователя"
-                open={isUserModalVisible}
-                onCancel={() => setIsUserModalVisible(false)}
-                footer={null}
-            >
-                <p>Здесь будет информация о пользователе.</p>
-            </Modal>
-        </>
+        </DndProvider>
     );
 };
 

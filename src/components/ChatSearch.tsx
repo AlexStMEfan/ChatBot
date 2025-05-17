@@ -1,68 +1,29 @@
-import { Input, Dropdown, Menu } from 'antd';
+import React from 'react';
+import { Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import { useState } from 'react';
 
-const ChatSearch = ({ chats, setActiveChat }: { chats: any[], setActiveChat: (id: number) => void }) => {
-    const [searchValue, setSearchValue] = useState('');
-    const [filteredChats, setFilteredChats] = useState<any[]>([]);
+interface ChatSearchProps {
+    searchTerm: string;
+    setSearchTerm: (term: string) => void;
+    themeMode: 'light' | 'dark';
+}
 
-    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchValue(value);
-
-        if (value.trim() !== '') {
-            const filtered = chats.filter(chat =>
-                chat.name.toLowerCase().includes(value.toLowerCase())
-            );
-            setFilteredChats(filtered);
-        } else {
-            setFilteredChats([]);
-        }
-    };
-
-    const handleSelectChat = (chatId: number) => {
-        setActiveChat(chatId);
-        setSearchValue('');
-        setFilteredChats([]);
-    };
-
-    const menu = (
-        <Menu>
-            {filteredChats.length > 0 ? (
-                filteredChats.map(chat => (
-                    <Menu.Item key={chat.id} onClick={() => handleSelectChat(chat.id)}>
-                        {chat.name}
-                    </Menu.Item>
-                ))
-            ) : (
-                <Menu.Item disabled>Ничего не найдено</Menu.Item>
-            )}
-        </Menu>
-    );
+const ChatSearch: React.FC<ChatSearchProps> = ({ searchTerm, setSearchTerm, themeMode }) => {
+    const isDark = themeMode === 'dark';
 
     return (
-        <div style={{ padding: '16px' }}>
-            <Dropdown
-                overlay={menu}
-                visible={searchValue.length > 0}
-                placement="bottomLeft"
-                trigger={['click']}
-            >
-                <Input
-                    prefix={<SearchOutlined />}
-                    placeholder="Поиск чатов..."
-                    value={searchValue}
-                    onChange={handleSearch}
-                    style={{
-                        borderRadius: 12,
-                        padding: '6px 6px',
-                        backgroundColor: '#f5f5f5',
-                        border: 'none',
-                        fontSize: 14,
-                        color: '#595959',
-                    }}
-                />
-            </Dropdown>
+        <div style={{ padding: '0 16px 16px 16px' }}>
+            <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="Поиск чатов"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                    backgroundColor: isDark ? '#141414' : undefined,
+                    color: isDark ? '#fff' : undefined,
+                }}
+            />
         </div>
     );
 };

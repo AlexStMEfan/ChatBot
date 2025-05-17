@@ -8,7 +8,7 @@ import {
     theme as antdTheme,
     Dropdown,
     Tooltip,
-    Menu,
+    message,
 } from 'antd';
 import {
     MenuOutlined,
@@ -30,35 +30,97 @@ type Message = {
     content: string;
 };
 
+type Chat = {
+    name: string;
+    messages: string[];
+};
+
 const MainPage: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [model, setModel] = useState<string>('chatgpt');
-    const [language, setLanguage] = useState<string>('ru');
     const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [selectedChatIndex, setSelectedChatIndex] = useState<number | null>(null);
 
     const isDark = themeMode === 'dark';
 
     const handleSend = (text: string) => {
-        if (!text.trim()) return;
+        if (!text.trim() || selectedChatIndex === null) return;
+
         const userMessage: Message = { role: 'user', content: text };
         const assistantMessage: Message = {
             role: 'assistant',
             content: `**Вы сказали:** ${text}`,
         };
+
         setMessages(prev => [...prev, userMessage, assistantMessage]);
+
+        setChats(prev => {
+            const updated = [...prev];
+            updated[selectedChatIndex].messages.push(text, assistantMessage.content);
+            return updated;
+        });
     };
 
-    const handleLanguageChange = (key: string) => {
-        setLanguage(key);
+    const handleCreateChat = (name: string) => {
+        const newChat: Chat = { name, messages: [] };
+        setChats(prev => [...prev, newChat]);
+        setSelectedChatIndex(chats.length);
+        setMessages([]);
     };
 
-    const languageMenu = (
-        <Menu onClick={({ key }) => handleLanguageChange(key)}>
-            <Menu.Item key="ru">Русский</Menu.Item>
-            <Menu.Item key="en">English</Menu.Item>
-        </Menu>
-    );
+    const handleRenameChat = (index: number, newName: string) => {
+        setChats(prev => {
+            const updated = [...prev];
+            updated[index].name = newName;
+            return updated;
+        });
+    };
+
+    const handleDeleteChat = (index: number) => {
+        setChats(prev => {
+            const updated = [...prev];
+            updated.splice(index, 1);
+            return updated;
+        });
+
+        if (selectedChatIndex === index) {
+            setSelectedChatIndex(null);
+            setMessages([]);
+        } else if (selectedChatIndex !== null && selectedChatIndex > index) {
+            setSelectedChatIndex(selectedChatIndex - 1);
+        }
+    };
+
+    const handleReorderChats = (from: number, to: number) => {
+        setChats(prev => {
+            const updated = [...prev];
+            const [moved] = updated.splice(from, 1);
+            updated.splice(to, 0, moved);
+            return updated;
+        });
+    };
+
+    const handleSelectChat = (index: number) => {
+        setSelectedChatIndex(index);
+        setMessages(
+            chats[index]?.messages.map((m, i) => ({
+                role: i % 2 === 0 ? 'user' : 'assistant',
+                content: m,
+            })) || []
+        );
+    };
+
+    const languageMenu = {
+        items: [
+            { key: 'ru', label: 'Русский' },
+            { key: 'en', label: 'English' },
+        ],
+        onClick: ({ key }: { key: string }) => {
+            message.info(`Язык изменён на: ${key}`);
+        },
+    };
 
     return (
         <ConfigProvider
@@ -73,7 +135,18 @@ const MainPage: React.FC = () => {
         >
             <DndProvider backend={HTML5Backend}>
                 <Layout style={{ height: '100vh', overflow: 'hidden' }}>
-                    <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} themeMode={themeMode} />
+                    <Sidebar
+                        chats={chats}
+                        selectedChatIndex={selectedChatIndex}
+                        onSelectChat={handleSelectChat}
+                        onDeleteChat={handleDeleteChat}
+                        onRenameChat={handleRenameChat}
+                        onCreateChat={handleCreateChat}
+                        onReorderChats={handleReorderChats}
+                        collapsed={collapsed}
+                        setCollapsed={setCollapsed}
+                        themeMode={themeMode}
+                    />
                     <Layout style={{ marginLeft: collapsed ? 0 : 300, transition: 'margin-left 0.2s ease' }}>
                         <Header
                             style={{
@@ -114,7 +187,7 @@ const MainPage: React.FC = () => {
                             </Space>
 
                             <Space>
-                                <Dropdown overlay={languageMenu}>
+                                <Dropdown menu={languageMenu}>
                                     <Button
                                         icon={<GlobalOutlined />}
                                         style={{
@@ -129,7 +202,9 @@ const MainPage: React.FC = () => {
                                 <Tooltip title={themeMode === 'dark' ? 'Тёмная тема' : 'Светлая тема'}>
                                     <Button
                                         icon={themeMode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
-                                        onClick={() => setThemeMode(prev => (prev === 'dark' ? 'light' : 'dark'))}
+                                        onClick={() =>
+                                            setThemeMode(prev => (prev === 'dark' ? 'light' : 'dark'))
+                                        }
                                         style={{
                                             border: 'none',
                                             borderRadius: 40,
@@ -142,7 +217,14 @@ const MainPage: React.FC = () => {
                             </Space>
                         </Header>
 
-                        <Content style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <Content
+                            style={{
+                                height: 'calc(100vh - 64px)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden',
+                            }}
+                        >
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                                 <ChatWindow messages={messages} />
                             </div>
