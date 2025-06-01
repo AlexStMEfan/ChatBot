@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Input } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import classNames from 'classnames';
+import './ChatSearch.css';
 
 interface ChatSearchProps {
     searchTerm: string;
@@ -9,23 +11,28 @@ interface ChatSearchProps {
 }
 
 const ChatSearch: React.FC<ChatSearchProps> = ({ searchTerm, setSearchTerm, themeMode }) => {
-    const isDark = themeMode === 'dark';
+
+    const onInputChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+
+            const value = e.target.value ?? '';
+            setSearchTerm(value);
+        },
+        [setSearchTerm]
+    );
 
     return (
-        <div style={{ padding: '0 16px 16px 16px' }}>
+        <div className={classNames('chat-search-container', { dark: themeMode === 'dark', light: themeMode === 'light' })}>
             <Input
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<SearchOutlined className="chat-search-icon" />}
                 placeholder="Поиск чатов"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                    backgroundColor: isDark ? '#141414' : undefined,
-                    color: isDark ? '#fff' : undefined,
-                }}
+                onChange={onInputChange}
+                className="chat-search-input"
             />
         </div>
     );
 };
 
-export default ChatSearch;
+export default React.memo(ChatSearch);

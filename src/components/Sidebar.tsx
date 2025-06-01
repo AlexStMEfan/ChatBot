@@ -1,263 +1,1 @@
-import React, { useState, useCallback } from 'react';
-import {
-    Layout,
-    Button,
-    Avatar,
-    Modal,
-    Input,
-    Menu,
-    message,
-} from 'antd';
-import {
-    PlusOutlined,
-    UserOutlined,
-    EditOutlined,
-    DownloadOutlined,
-    InboxOutlined,
-    DeleteOutlined,
-} from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import ChatSearch from './ChatSearch';
-import SidebarItem from './SidebarItem';
-import update from 'immutability-helper';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { saveAs } from 'file-saver';
-import './Sidebar.css';
-
-const { Sider } = Layout;
-
-export interface ChatType {
-    id: number;
-    name: string;
-}
-
-interface SidebarProps {
-    collapsed: boolean;
-    themeMode: 'light' | 'dark';
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, themeMode }) => {
-    const [chats, setChats] = useState<ChatType[]>([]);
-    const [activeChat, setActiveChat] = useState<number | null>(null);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [renameModalVisible, setRenameModalVisible] = useState(false);
-    const [chatToRename, setChatToRename] = useState<ChatType | null>(null);
-    const [newChatName, setNewChatName] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
-    const navigate = useNavigate();
-    const isDark = themeMode === 'dark';
-
-    const generateUniqueId = () => Date.now();
-
-    const handleCreateChat = () => {
-        const newChat: ChatType = {
-            id: generateUniqueId(),
-            name: `Новый чат ${chats.length + 1}`,
-        };
-        setChats(prev => [newChat, ...prev]);
-        setActiveChat(newChat.id);
-        navigate(`/chat/${newChat.id}`);
-    };
-
-    const exportChatToMarkdown = (chat: ChatType) => {
-        const markdown = `# Чат: ${chat.name}\n\n*Это пример содержимого чата.*`;
-        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-        saveAs(blob, `${chat.name}.md`);
-    };
-
-    const moveChat = useCallback((dragIndex: number, hoverIndex: number) => {
-        const draggedChat = chats[dragIndex];
-        setChats(
-            update(chats, {
-                $splice: [
-                    [dragIndex, 1],
-                    [hoverIndex, 0, draggedChat],
-                ],
-            })
-        );
-    }, [chats]);
-
-    const handleMenuClick = (key: string, chat: ChatType) => {
-        switch (key) {
-            case 'delete':
-                Modal.confirm({
-                    title: `Удалить чат "${chat.name}"?`,
-                    content: 'Это действие нельзя отменить. Вы уверены?',
-                    okText: 'Удалить',
-                    okType: 'danger',
-                    cancelText: 'Отмена',
-                    onOk() {
-                        setChats(prev => prev.filter(c => c.id !== chat.id));
-                        if (activeChat === chat.id) setActiveChat(null);
-                        message.success(`Чат "${chat.name}" удалён`);
-                    },
-                });
-                break;
-            case 'rename':
-                setChatToRename(chat);
-                setNewChatName(chat.name);
-                setRenameModalVisible(true);
-                break;
-            case 'export':
-                exportChatToMarkdown(chat);
-                break;
-            case 'archive':
-                message.info(`Архивировать чат: ${chat.name}`);
-                break;
-        }
-    };
-
-    const renderDropdownMenu = (chat: ChatType) => (
-        <Menu
-            onClick={({ key }) => handleMenuClick(key, chat)}
-            items={[
-                { key: 'rename', icon: <EditOutlined />, label: 'Переименовать' },
-                { key: 'export', icon: <DownloadOutlined />, label: 'Экспортировать' },
-                { key: 'archive', icon: <InboxOutlined />, label: 'Архивировать' },
-                { type: 'divider' },
-                { key: 'delete', icon: <DeleteOutlined />, label: 'Удалить', danger: true },
-            ]}
-        />
-    );
-
-    const filteredChats = chats.filter(chat =>
-        chat.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-        <DndProvider backend={HTML5Backend}>
-            <Sider
-                width={300}
-                collapsedWidth={0}
-                collapsed={collapsed}
-                trigger={null}
-                className={`custom-sidebar ${isDark ? 'dark' : 'light'}`}
-            >
-                <div className="sidebar-container">
-                    {!collapsed && <div className="sidebar-header">ChatBot</div>}
-
-                    <div className="sidebar-button">
-                        <Button
-                            type="primary"
-                            block
-                            icon={<PlusOutlined />}
-                            onClick={handleCreateChat}
-                            style={{
-                                background: isDark ? '#444' : undefined,
-                                borderColor: isDark ? '#666' : undefined,
-                            }}
-                        >
-                            Новый чат
-                        </Button>
-                    </div>
-
-                    <ChatSearch
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        themeMode={themeMode}
-                    />
-
-                    <div className="sidebar-chat-list">
-                        {filteredChats.length === 0 ? (
-                            <div className="sidebar-empty">Чаты не найдены</div>
-                        ) : (
-                            filteredChats.map((chat, index) => (
-                                <SidebarItem
-                                    key={chat.id}
-                                    id={chat.id}
-                                    index={index}
-                                    name={chat.name}
-                                    isActive={chat.id === activeChat}
-                                    collapsed={collapsed}
-                                    themeMode={themeMode}
-                                    moveChat={moveChat}
-                                    onClick={() => {
-                                        setActiveChat(chat.id);
-                                        navigate(`/chat/${chat.id}`);
-                                    }}
-                                    dropdown={renderDropdownMenu(chat)}
-                                />
-                            ))
-                        )}
-                    </div>
-
-                    {!collapsed && (
-                        <div className="sidebar-user" onClick={() => setIsModalVisible(true)}>
-                            <div className="avatar-wrapper">
-                                <Avatar size="large" icon={<UserOutlined />} />
-                                <div className="status-indicator" />
-                            </div>
-                            <div className="user-info">
-                                <div className="user-name">Александр Иванов</div>
-                                <div className="user-email">alexander@email.com</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Модальные окна */}
-                <Modal
-                    title="Информация о пользователе"
-                    open={isModalVisible}
-                    onCancel={() => setIsModalVisible(false)}
-                    footer={null}
-                    className={isDark ? 'dark-modal' : ''}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-                        <Avatar size={64} icon={<UserOutlined />} style={{ marginRight: 16 }} />
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: 16 }}>
-                                Александр Иванов
-                            </div>
-                            <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>
-                                Руководитель проектов
-                            </div>
-                            <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>
-                                alexander@email.com
-                            </div>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button block>Импортировать чаты</Button>
-                        <Button type="primary" block onClick={() => setIsModalVisible(false)}>
-                            Закрыть
-                        </Button>
-                    </div>
-                </Modal>
-
-                <Modal
-                    title="Переименовать чат"
-                    open={renameModalVisible}
-                    onCancel={() => setRenameModalVisible(false)}
-                    onOk={() => {
-                        if (!newChatName.trim()) {
-                            message.error('Название чата не может быть пустым');
-                            return;
-                        }
-                        if (chatToRename) {
-                            setChats((prev) =>
-                                prev.map((c) =>
-                                    c.id === chatToRename.id ? { ...c, name: newChatName } : c
-                                )
-                            );
-                        }
-                        setRenameModalVisible(false);
-                    }}
-                    okText="Сохранить"
-                    cancelText="Отмена"
-                    className={isDark ? 'dark-modal' : ''}
-                >
-                    <Input
-                        value={newChatName}
-                        onChange={(e) => setNewChatName(e.target.value)}
-                        placeholder="Введите новое название чата"
-                        maxLength={50}
-                    />
-                </Modal>
-            </Sider>
-        </DndProvider>
-    );
-};
-
-export default Sidebar;
+// Sidebar.tsximport React, { useState } from 'react';import {    Layout,    Button,    Avatar,    Modal,    Input,    message,} from 'antd';import {    PlusOutlined,    UserOutlined,} from '@ant-design/icons';import { useNavigate } from 'react-router-dom';import { saveAs } from 'file-saver';import ChatSearch from './ChatSearch';import SidebarItem from './SidebarItem';import './Sidebar.css';const { Sider } = Layout;export interface ChatType {    id: string;    name: string;}interface SidebarProps {    chats: ChatType[];    activeChatId: string | null;    onSelectChat: (id: string) => void;    onCreateChat: () => void;    onDeleteChat: (id: string) => void;    onRenameChat: (id: string, newName: string) => void;    collapsed: boolean;    themeMode: 'light' | 'dark';}const Sidebar: React.FC<SidebarProps> = ({                                             chats,                                             activeChatId,                                             onSelectChat,                                             onCreateChat,                                             onDeleteChat,                                             onRenameChat,                                             collapsed,                                             themeMode,                                         }) => {    const [searchTerm, setSearchTerm] = useState('');    const [isUserModalVisible, setIsUserModalVisible] = useState(false);    const [renameModalVisible, setRenameModalVisible] = useState(false);    const [chatToRename, setChatToRename] = useState<ChatType | null>(null);    const [newChatName, setNewChatName] = useState('');    const [deleteModalVisible, setDeleteModalVisible] = useState(false);    const [chatToDelete, setChatToDelete] = useState<ChatType | null>(null);    const isDark = themeMode === 'dark';    const navigate = useNavigate();    const handleMenuClick = (key: string, chat: ChatType) => {        switch (key) {            case 'delete':                setChatToDelete(chat);                setDeleteModalVisible(true);                break;            case 'rename':                setChatToRename(chat);                setNewChatName(chat.name);                setRenameModalVisible(true);                break;            case 'export':                exportChatToMarkdown(chat);                break;            case 'archive':                message.info(`Архивировать чат "${chat.name}" (функция в разработке)`);                break;            default:                break;        }    };    const exportChatToMarkdown = (chat: ChatType) => {        const markdown = `# Чат: ${chat.name}\n\n*Это пример содержимого чата.*`;        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });        saveAs(blob, `${chat.name}.md`);    };    const filteredChats = chats.filter(chat =>        typeof chat.name === 'string' &&        chat.name.toLowerCase().includes(searchTerm.toLowerCase())    );    const handleRenameOk = () => {        if (!newChatName.trim()) {            message.error('Название чата не может быть пустым');            return;        }        if (chatToRename) {            onRenameChat(chatToRename.id, newChatName.trim());        }        setRenameModalVisible(false);    };    const handleDeleteOk = () => {        if (chatToDelete) {            onDeleteChat(chatToDelete.id);        }        setDeleteModalVisible(false);        setChatToDelete(null);    };    return (        <Sider            width={300}            collapsedWidth={0}            collapsed={collapsed}            trigger={null}            className={`custom-sidebar ${isDark ? 'dark' : 'light'}`}        >            <div className="sidebar-inner" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>                <div className="sidebar-content" style={{ flexGrow: 1, overflowY: 'auto' }}>                    {!collapsed && <div className="sidebar-header">ChatBot</div>}                    <div className="sidebar-button" style={{ padding: '0 12px 16px' }}>                        <div                            onClick={onCreateChat}                            style={{                                width: '100%',                                background: isDark ? '#444' : '#1677ff',                                color: '#fff',                                padding: '10px 16px',                                borderRadius: 6,                                fontWeight: 500,                                textAlign: 'center',                                cursor: 'pointer',                                transition: 'background 0.3s',                                border: `1px solid ${isDark ? '#666' : '#1677ff'}`,                            }}                            onMouseOver={(e) => {                                (e.currentTarget as HTMLDivElement).style.background = isDark ? '#555' : '#4096ff';                            }}                            onMouseOut={(e) => {                                (e.currentTarget as HTMLDivElement).style.background = isDark ? '#444' : '#1677ff';                            }}                        >                            <PlusOutlined style={{ marginRight: 8 }} />                            Новый чат                        </div>                    </div>                    <ChatSearch                        searchTerm={searchTerm}                        setSearchTerm={setSearchTerm}                        themeMode={themeMode}                    />                    <div className="sidebar-chat-list" style={{ padding: '8px 0' }}>                        {filteredChats.length === 0 ? (                            <div className="sidebar-empty" style={{ padding: 12, textAlign: 'center' }}>                                Чаты не найдены                            </div>                        ) : (                            filteredChats.map(chat => (                                <SidebarItem                                    key={chat.id}                                    id={chat.id}                                    name={chat.name}                                    isActive={chat.id === activeChatId}                                    collapsed={collapsed}                                    themeMode={themeMode}                                    onClick={() => {                                        onSelectChat(chat.id);                                        navigate(`/chat/${chat.id}`);                                    }}                                    onMenuClick={(key) => handleMenuClick(key, chat)}                                />                            ))                        )}                    </div>                </div>                {!collapsed && (                    <div                        className="sidebar-user"                        style={{                            borderTop: isDark ? '1px solid #444' : '1px solid #ddd',                            padding: '14px 16px',                            cursor: 'pointer',                            display: 'flex',                            alignItems: 'center',                            background: 'transparent',                            transition: 'background 0.3s ease',                        }}                        onClick={() => setIsUserModalVisible(true)}                        onMouseOver={(e) => {                            (e.currentTarget as HTMLDivElement).style.background = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(24, 144, 255, 0.12)';                        }}                        onMouseOut={(e) => {                            (e.currentTarget as HTMLDivElement).style.background = 'transparent';                        }}                    >                        <div className="avatar-wrapper" style={{ position: 'relative' }}>                            <Avatar size="large" icon={<UserOutlined />} />                            <span                                className="status-indicator"                                style={{                                    position: 'absolute',                                    bottom: 0,                                    right: 0,                                    width: 10,                                    height: 10,                                    borderRadius: '50%',                                    backgroundColor: '#52c41a',                                    border: '2px solid white',                                }}                            />                        </div>                        <div className="user-info" style={{ marginLeft: 12, flex: 1, overflow: 'hidden' }}>                            <div className="user-name" style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>                                Александр Иванов                            </div>                            <div className="user-email" style={{ fontSize: 12, color: isDark ? '#aaa' : '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>                                alexander@email.com                            </div>                        </div>                    </div>                )}            </div>            <Modal                title="Информация о пользователе"                open={isUserModalVisible}                onCancel={() => setIsUserModalVisible(false)}                footer={null}                className={isDark ? 'dark-modal' : ''}            >                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>                    <Avatar size={64} icon={<UserOutlined />} style={{ marginRight: 16 }} />                    <div>                        <div style={{ fontWeight: 600, fontSize: 16 }}>                            Александр Иванов                        </div>                        <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>                            Руководитель проектов                        </div>                        <div style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>                            alexander@email.com                        </div>                    </div>                </div>                <div style={{ display: 'flex', gap: 8 }}>                    <Button block>Импортировать чаты</Button>                    <Button type="primary" block onClick={() => setIsUserModalVisible(false)}>                        Закрыть                    </Button>                </div>            </Modal>            <Modal                title="Переименовать чат"                open={renameModalVisible}                onCancel={() => setRenameModalVisible(false)}                onOk={handleRenameOk}                okText="Сохранить"                cancelText="Отмена"                className={isDark ? 'dark-modal' : ''}            >                <Input                    value={newChatName}                    onChange={(e) => setNewChatName(e.target.value)}                    maxLength={30}                    placeholder="Новое имя чата"                />            </Modal>            <Modal                title="Удалить чат?"                open={deleteModalVisible}                onCancel={() => setDeleteModalVisible(false)}                onOk={handleDeleteOk}                okText="Удалить"                cancelText="Отмена"                okButtonProps={{ danger: true }}                className={isDark ? 'dark-modal' : ''}            >                <p>Вы действительно хотите удалить чат &quot;{chatToDelete?.name}&quot;?</p>            </Modal>        </Sider>    );};export default Sidebar;

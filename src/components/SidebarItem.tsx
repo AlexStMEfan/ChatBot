@@ -1,87 +1,94 @@
-import React from 'react';
-import { MenuOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Button, Tooltip } from 'antd';
-import { useDrag, useDrop } from 'react-dnd';
+import React, { useMemo } from 'react';
+import { Dropdown, MenuProps } from 'antd';
+import {
+    EditOutlined,
+    DownloadOutlined,
+    InboxOutlined,
+    DeleteOutlined,
+    MoreOutlined,
+} from '@ant-design/icons';
+import classNames from 'classnames';
 import './SidebarItem.css';
 
-export interface SidebarItemProps {
-    id: number;
-    index: number;
+type MenuKey = 'rename' | 'export' | 'archive' | 'delete';
+
+interface SidebarItemProps {
+    id: string | number; // для масштабируемости
     name: string;
     isActive: boolean;
     collapsed: boolean;
     themeMode: 'light' | 'dark';
-    moveChat: (dragIndex: number, hoverIndex: number) => void;
     onClick: () => void;
-    dropdown: React.ReactElement;
+    onMenuClick: (key: MenuKey, id: string | number) => void;
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({
                                                      id,
-                                                     index,
                                                      name,
                                                      isActive,
                                                      collapsed,
                                                      themeMode,
-                                                     moveChat,
                                                      onClick,
-                                                     dropdown,
+                                                     onMenuClick,
                                                  }) => {
-    const ref = React.useRef<HTMLDivElement>(null);
+    const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+        if (
+            key === 'rename' ||
+            key === 'export' ||
+            key === 'archive' ||
+            key === 'delete'
+        ) {
+            onMenuClick(key, id);
+        } else {
+            console.warn(`Unknown menu key: ${key}`);
+        }
+    };
 
-    const [, drop] = useDrop({
-        accept: 'chat',
-        hover(item: { id: number; index: number }) {
-            if (!ref.current || item.index === index) return;
-            moveChat(item.index, index);
-            item.index = index;
-        },
-    });
-
-    const [{ isDragging }, drag] = useDrag({
-        type: 'chat',
-        item: { id, index },
-        collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-        }),
-    });
-
-    drag(drop(ref));
-
-    const isDark = themeMode === 'dark';
+    // Мемоизация элементов меню, чтобы не создавать новый массив на каждый рендер
+    const dropdownItems: MenuProps['items'] = useMemo(() => [
+        { key: 'rename', icon: <EditOutlined />, label: 'Переименовать' },
+        { key: 'export', icon: <DownloadOutlined />, label: 'Экспортировать' },
+        { key: 'archive', icon: <InboxOutlined />, label: 'Архивировать' },
+        { type: 'divider' },
+        { key: 'delete', icon: <DeleteOutlined />, label: 'Удалить', danger: true },
+    ], []);
 
     return (
         <div
-            ref={ref}
+            className={classNames('sidebar-item', {
+                active: isActive,
+                dark: themeMode === 'dark',
+            })}
             onClick={onClick}
-            className={`sidebar-item ${isActive ? 'active' : ''} ${isDark ? 'dark' : 'light'}`}
-            style={{
-                opacity: isDragging ? 0.5 : 1,
-                backgroundColor: isActive ? (isDark ? '#2a2a2a' : '#e6f7ff') : 'transparent',
-                color: isDark ? '#fff' : '#000',
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick();
+                }
             }}
         >
             <div className="sidebar-item-content">
-                <MenuOutlined style={{ marginRight: 8, fontSize: 16, color: isDark ? '#bbb' : '#888' }} />
-                <span className="chat-name">{name}</span>
-            </div>
-            {!collapsed && (
-                <Dropdown overlay={dropdown} trigger={['click']}>
-                    <Tooltip title="Опции">
-                        <Button
-                            shape="circle"
-                            icon={<MoreOutlined />}
-                            size="small"
+                <span className="chat-name">{collapsed ? name.charAt(0) : name}</span>
+
+                {!collapsed && (
+                    <Dropdown
+                        trigger={['click']}
+                        menu={{ items: dropdownItems, onClick: handleMenuClick }}
+                        placement="bottomRight"
+                    >
+                        <div
+                            className="options-button"
                             onClick={(e) => e.stopPropagation()}
-                            style={{
-                                border: 'none',
-                                background: isDark ? '#3a3a3a' : 'transparent',
-                                color: isDark ? '#bbb' : '#555',
-                            }}
-                        />
-                    </Tooltip>
-                </Dropdown>
-            )}
+                            aria-label="Настройки чата"
+                            tabIndex={-1} // чтобы не было фокуса при табе
+                        >
+                            <MoreOutlined />
+                        </div>
+                    </Dropdown>
+                )}
+            </div>
         </div>
     );
 };
