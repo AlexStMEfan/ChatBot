@@ -15,7 +15,7 @@ const { Header, Content } = Layout;
 export type Chat = {
     id: string;
     name: string;
-    messages: Message[]; // теперь используем правильный тип Message
+    messages: Message[];
 }
 
 const MainPage: React.FC = () => {
@@ -25,46 +25,74 @@ const MainPage: React.FC = () => {
 
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChatIndex, setSelectedChatIndex] = useState<number | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]); // актуальный тип
+    const [messages, setMessages] = useState<Message[]>([]);
 
     const isDark = themeMode === 'dark';
 
-    const handleCreateChat = useCallback(() => {
+    // Функция для обновления сообщений в конкретном чате и синхронизации с локальным состоянием messages
+    const updateChatMessages = useCallback((chatIndex: number, newMessages: Message[]) => {
+        setChats(prev => {
+            const updated = [...prev];
+            updated[chatIndex] = { ...updated[chatIndex], messages: newMessages };
+            return updated;
+        });
+        setMessages(newMessages);
+    }, []);
+
+    // Создание нового чата: добавляем чат, выбираем его, обнуляем messages
+    const handleCreateChat = useCallback(async (): Promise<string> => {
         const newChat: Chat = {
             id: crypto.randomUUID(),
             name: `Новый чат ${chats.length + 1}`,
             messages: [],
         };
-        setChats(prev => [...prev, newChat]);
-        setSelectedChatIndex(chats.length);
-        setMessages([]);
+
+        setChats(prev => {
+            const updated = [...prev, newChat];
+            setSelectedChatIndex(updated.length - 1);
+            setMessages([]);
+            return updated;
+        });
+
+        return newChat.id;
     }, [chats.length]);
 
+    // Выбор чата: устанавливаем selectedChatIndex и messages из выбранного чата
     const handleSelectChat = useCallback((id: string) => {
-        const index = chats.findIndex(chat => chat.id === id);
-        if (index !== -1) {
-            setSelectedChatIndex(index);
-            setMessages(chats[index].messages);
-        }
-    }, [chats]);
+        setChats(prevChats => {
+            const index = prevChats.findIndex(chat => chat.id === id);
+            if (index !== -1) {
+                setSelectedChatIndex(index);
+                setMessages(prevChats[index].messages);
+            }
+            return prevChats;
+        });
+    }, []);
 
+    // Удаление чата: обновляем список, выбранный индекс и сообщения
     const handleDeleteChat = useCallback((id: string) => {
-        setChats(prev => {
-            const newChats = prev.filter(chat => chat.id !== id);
+        setChats(prevChats => {
+            const newChats = prevChats.filter(chat => chat.id !== id);
             if (selectedChatIndex !== null) {
-                const selectedChatId = prev[selectedChatIndex]?.id;
+                const selectedChatId = prevChats[selectedChatIndex]?.id;
                 if (selectedChatId === id) {
                     setSelectedChatIndex(null);
                     setMessages([]);
                 } else {
                     const newIndex = newChats.findIndex(chat => chat.id === selectedChatId);
                     setSelectedChatIndex(newIndex !== -1 ? newIndex : null);
+                    if (newIndex !== -1) {
+                        setMessages(newChats[newIndex].messages);
+                    } else {
+                        setMessages([]);
+                    }
                 }
             }
             return newChats;
         });
     }, [selectedChatIndex]);
 
+    // Переименование чата
     const handleRenameChat = useCallback((id: string, newName: string) => {
         setChats(prev =>
             prev.map(chat =>
@@ -73,35 +101,36 @@ const MainPage: React.FC = () => {
         );
     }, []);
 
-    const handleSend = useCallback((text: string) => {
-        if (!text.trim() || selectedChatIndex === null || !chats[selectedChatIndex]) return;
+    // Отправка сообщения
+    const handleSend = useCallback((text: string, chatId?: string) => {
+        if (!text.trim()) return;
 
-        const newMessage: Message = {
+        let chatIndex = selectedChatIndex;
+
+        if (chatId) {
+            chatIndex = chats.findIndex(c => c.id === chatId);
+            if (chatIndex === -1) return;
+        }
+        if (chatIndex === null) return;
+
+        const newUserMessage: Message = {
             role: 'user',
             content: text.trim(),
         };
 
-        setMessages(prev => [...prev, newMessage]);
-        setChats(prev => {
-            const updated = [...prev];
-            updated[selectedChatIndex].messages.push(newMessage);
-            return updated;
-        });
+        const updatedMessages = [...(chats[chatIndex]?.messages || []), newUserMessage];
 
-        // Пример ответа ассистента (заглушка)
+        updateChatMessages(chatIndex, updatedMessages);
+
         setTimeout(() => {
             const assistantMessage: Message = {
                 role: 'assistant',
                 content: 'Это пример ответа ассистента.',
             };
-            setMessages(prev => [...prev, assistantMessage]);
-            setChats(prev => {
-                const updated = [...prev];
-                updated[selectedChatIndex].messages.push(assistantMessage);
-                return updated;
-            });
+            const newMessages = [...updatedMessages, assistantMessage];
+            updateChatMessages(chatIndex!, newMessages);
         }, 1000);
-    }, [selectedChatIndex, chats]);
+    }, [selectedChatIndex, chats, updateChatMessages]);
 
     const languageMenu = useMemo(() => ({
         items: [
@@ -221,7 +250,10 @@ const MainPage: React.FC = () => {
                         <div style={{ flexShrink: 0, padding: '16px 24px' }}>
                             <SendMessage
                                 onSend={handleSend}
+                                onCreateChat={handleCreateChat}
+                                activeChatId={activeChatId}
                                 themeMode={themeMode}
+                                model={model}
                             />
                         </div>
                     </Content>

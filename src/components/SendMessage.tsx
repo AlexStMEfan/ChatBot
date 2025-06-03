@@ -3,25 +3,32 @@ import { Input, Button, Tooltip, Space } from 'antd';
 import { CloudUploadOutlined, SendOutlined } from '@ant-design/icons';
 
 type SendMessageProps = {
-    onSend: (text: string) => void;
+    onSend: (text: string, model: string, chatId: string) => void;
+    onCreateChat: () => Promise<string>;
+    activeChatId: string | null;
     themeMode: 'light' | 'dark';
+    model: string;  // теперь модель приходит из пропсов
 };
 
 const MAX_MESSAGE_LENGTH = 4000;
 
-const SendMessage: React.FC<SendMessageProps> = ({ onSend, themeMode }) => {
+const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeChatId, themeMode, model }) => {
     const [message, setMessage] = useState("");
 
-    const handleSend = () => {
+    const handleSend = async () => {
         const trimmed = message.trim();
         if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return;
 
-        // Убираем в продакшене
-        if (process.env.NODE_ENV !== 'production') {
-            console.debug("Отправка запроса:", trimmed);
+        let chatId = activeChatId;
+        if (!chatId) {
+            chatId = await onCreateChat();
         }
 
-        onSend(trimmed);
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug("Отправка запроса:", trimmed, "Модель:", model, "Чат:", chatId);
+        }
+
+        onSend(trimmed, model, chatId);
         setMessage("");
     };
 
@@ -55,29 +62,29 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend, themeMode }) => {
                     background: 'transparent',
                     color: isDark ? '#f5f5f5' : '#000',
                     outline: 'none',
-
                 }}
             />
 
             <Space style={{ justifyContent: 'space-between' }}>
-                <Tooltip title="Загрузить файл">
-                    <Button
-                        icon={<CloudUploadOutlined />}
-                        size="large"
-                        shape="circle"
-                    />
-                </Tooltip>
 
-                <Tooltip title="Отправить">
-                    <Button
-                        type="primary"
-                        icon={<SendOutlined />}
-                        size="large"
-                        shape="circle"
-                        onClick={handleSend}
-                        disabled={!message.trim() || message.length > MAX_MESSAGE_LENGTH}
-                    />
-                </Tooltip>
+                    <Tooltip title="Загрузить файл">
+                        <Button
+                            icon={<CloudUploadOutlined />}
+                            size="large"
+                            shape="circle"
+                        />
+                    </Tooltip>
+                    <Tooltip title="Отправить">
+                        <Button
+                            type="primary"
+                            icon={<SendOutlined />}
+                            size="large"
+                            shape="circle"
+                            onClick={handleSend}
+                            disabled={!message.trim() || message.length > MAX_MESSAGE_LENGTH}
+                        />
+                    </Tooltip>
+
             </Space>
         </div>
     );
