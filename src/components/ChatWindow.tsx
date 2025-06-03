@@ -8,7 +8,7 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'; // З
 
 const { Paragraph } = Typography;
 
-type Message = {
+export type Message = {
     role: 'user' | 'assistant';
     content: string;
 };

@@ -7,7 +7,7 @@ import {
 } from '@ant-design/icons';
 
 import Sidebar from '../components/Sidebar';
-import ChatWindow from '../components/ChatWindow';
+import ChatWindow, { Message } from '../components/ChatWindow';
 import SendMessage from '../components/SendMessage';
 
 const { Header, Content } = Layout;
@@ -15,8 +15,8 @@ const { Header, Content } = Layout;
 export type Chat = {
     id: string;
     name: string;
-    messages: string[]; // простой массив строк сообщений, как в первом варианте
-};
+    messages: Message[]; // теперь используем правильный тип Message
+}
 
 const MainPage: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -25,11 +25,10 @@ const MainPage: React.FC = () => {
 
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChatIndex, setSelectedChatIndex] = useState<number | null>(null);
-    const [messages, setMessages] = useState<string[]>([]); // строки сообщений из первого варианта
+    const [messages, setMessages] = useState<Message[]>([]); // актуальный тип
 
     const isDark = themeMode === 'dark';
 
-    // Создать новый чат с уникальным именем (из первого варианта)
     const handleCreateChat = useCallback(() => {
         const newChat: Chat = {
             id: crypto.randomUUID(),
@@ -37,11 +36,10 @@ const MainPage: React.FC = () => {
             messages: [],
         };
         setChats(prev => [...prev, newChat]);
-        setSelectedChatIndex(chats.length); // выбрать новый чат по индексу
+        setSelectedChatIndex(chats.length);
         setMessages([]);
     }, [chats.length]);
 
-    // Выбрать чат по id (из первого варианта)
     const handleSelectChat = useCallback((id: string) => {
         const index = chats.findIndex(chat => chat.id === id);
         if (index !== -1) {
@@ -50,7 +48,6 @@ const MainPage: React.FC = () => {
         }
     }, [chats]);
 
-    // Удалить чат по id (из первого варианта)
     const handleDeleteChat = useCallback((id: string) => {
         setChats(prev => {
             const newChats = prev.filter(chat => chat.id !== id);
@@ -68,7 +65,6 @@ const MainPage: React.FC = () => {
         });
     }, [selectedChatIndex]);
 
-    // Переименовать чат по id (из первого варианта)
     const handleRenameChat = useCallback((id: string, newName: string) => {
         setChats(prev =>
             prev.map(chat =>
@@ -77,20 +73,36 @@ const MainPage: React.FC = () => {
         );
     }, []);
 
-    // Отправка сообщения пользователем (простой пример, добавляем в messages и chats)
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || selectedChatIndex === null || !chats[selectedChatIndex]) return;
 
-        // Добавляем сообщение пользователя в локальный стейт сообщений и в чат
-        setMessages(prev => [...prev, text]);
+        const newMessage: Message = {
+            role: 'user',
+            content: text.trim(),
+        };
+
+        setMessages(prev => [...prev, newMessage]);
         setChats(prev => {
             const updated = [...prev];
-            updated[selectedChatIndex].messages.push(text);
+            updated[selectedChatIndex].messages.push(newMessage);
             return updated;
         });
+
+        // Пример ответа ассистента (заглушка)
+        setTimeout(() => {
+            const assistantMessage: Message = {
+                role: 'assistant',
+                content: 'Это пример ответа ассистента.',
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+            setChats(prev => {
+                const updated = [...prev];
+                updated[selectedChatIndex].messages.push(assistantMessage);
+                return updated;
+            });
+        }, 1000);
     }, [selectedChatIndex, chats]);
 
-    // Меню выбора языка (как во втором варианте)
     const languageMenu = useMemo(() => ({
         items: [
             { key: 'ru', label: 'Русский' },
@@ -100,6 +112,8 @@ const MainPage: React.FC = () => {
             message.info(`Язык изменён на: ${key}`);
         },
     }), []);
+
+    const activeChatId = selectedChatIndex !== null ? chats[selectedChatIndex]?.id : null;
 
     return (
         <ConfigProvider
@@ -123,6 +137,7 @@ const MainPage: React.FC = () => {
                     collapsed={collapsed}
                     setCollapsed={setCollapsed}
                     themeMode={themeMode}
+                    activeChatId={activeChatId}
                 />
                 <Layout style={{ marginLeft: collapsed ? 0 : 300, transition: 'margin-left 0.2s ease' }}>
                     <Header
