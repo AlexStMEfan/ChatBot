@@ -2,29 +2,39 @@ import React, { useState } from "react";
 import { Input, Button, Tooltip, Space } from 'antd';
 import { CloudUploadOutlined, SendOutlined } from '@ant-design/icons';
 
-
 type SendMessageProps = {
     onSend: (text: string) => void;
+    themeMode: 'light' | 'dark';
 };
 
-const SendMessage: React.FC<SendMessageProps> = ({ onSend }) => {
+const MAX_MESSAGE_LENGTH = 4000;
+
+const SendMessage: React.FC<SendMessageProps> = ({ onSend, themeMode }) => {
     const [message, setMessage] = useState("");
 
     const handleSend = () => {
-        if (!message.trim()) return;
-        console.log("Отправка запроса:", message);
-        onSend(message);
+        const trimmed = message.trim();
+        if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return;
+
+        // Убираем в продакшене
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug("Отправка запроса:", trimmed);
+        }
+
+        onSend(trimmed);
         setMessage("");
     };
+
+    const isDark = themeMode === 'dark';
 
     return (
         <div
             style={{
                 padding: '16px',
-                border: '1px solid #f0f0f0',
-                borderRadius: '16px',
-                background: '#fff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                border: isDark ? '1px solid #333' : '1px solid #f0f0f0',
+                borderRadius: '30px',
+                background: isDark ? '#1e1e1e' : '#fff',
+                boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.05)',
                 width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -41,6 +51,11 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend }) => {
                 style={{
                     fontSize: 16,
                     border: 'none',
+                    boxShadow: 'none',
+                    background: 'transparent',
+                    color: isDark ? '#f5f5f5' : '#000',
+                    outline: 'none',
+
                 }}
             />
 
@@ -60,6 +75,7 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend }) => {
                         size="large"
                         shape="circle"
                         onClick={handleSend}
+                        disabled={!message.trim() || message.length > MAX_MESSAGE_LENGTH}
                     />
                 </Tooltip>
             </Space>

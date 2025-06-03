@@ -139,7 +139,7 @@ const MainPage: React.FC = () => {
                     themeMode={themeMode}
                     activeChatId={activeChatId}
                 />
-                <Layout style={{ marginLeft: collapsed ? 0 : 300, transition: 'margin-left 0.2s ease' }}>
+                <Layout style={{ marginLeft: collapsed ? 0 : 0, transition: 'margin-left 0.2s ease' }}>
                     <Header
                         style={{
                             padding: '0 24px',
@@ -219,7 +219,10 @@ const MainPage: React.FC = () => {
                             <ChatWindow messages={messages} />
                         </div>
                         <div style={{ flexShrink: 0, padding: '16px 24px' }}>
-                            <SendMessage onSend={handleSend} />
+                            <SendMessage
+                                onSend={handleSend}
+                                themeMode={themeMode}
+                            />
                         </div>
                     </Content>
                 </Layout>
