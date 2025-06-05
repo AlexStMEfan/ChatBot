@@ -3,19 +3,18 @@ import { Input, Button, Tooltip, Space } from 'antd';
 import { CloudUploadOutlined, SendOutlined } from '@ant-design/icons';
 
 type SendMessageProps = {
-    onSend: (text: string, model: string, chatId: string) => void;
+    onSend: (text: string, chatId?: string) => void;
     onCreateChat: () => Promise<string>;
     activeChatId: string | null;
     themeMode: 'light' | 'dark';
-    model: string;  // теперь модель приходит из пропсов
 };
 
 const MAX_MESSAGE_LENGTH = 4000;
 
-const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeChatId, themeMode, model }) => {
+const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeChatId, themeMode }) => {
     const [message, setMessage] = useState("");
 
-    const handleSend = async () => {
+    const sendMessage = async () => {
         const trimmed = message.trim();
         if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return;
 
@@ -25,11 +24,18 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeC
         }
 
         if (process.env.NODE_ENV !== 'production') {
-            console.debug("Отправка запроса:", trimmed, "Модель:", model, "Чат:", chatId);
+            console.debug("Отправка запроса:", trimmed, "Чат:", chatId);
         }
 
-        onSend(trimmed, model, chatId);
+        onSend(trimmed, chatId);
         setMessage("");
+    };
+
+    const handleKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            await sendMessage();
+        }
     };
 
     const isDark = themeMode === 'dark';
@@ -51,7 +57,7 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeC
             <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onPressEnter={handleSend}
+                onKeyDown={handleKeyPress}
                 placeholder="Введите запрос к нейросети..."
                 allowClear
                 size="large"
@@ -66,25 +72,23 @@ const SendMessage: React.FC<SendMessageProps> = ({ onSend, onCreateChat, activeC
             />
 
             <Space style={{ justifyContent: 'space-between' }}>
-
-                    <Tooltip title="Загрузить файл">
-                        <Button
-                            icon={<CloudUploadOutlined />}
-                            size="large"
-                            shape="circle"
-                        />
-                    </Tooltip>
-                    <Tooltip title="Отправить">
-                        <Button
-                            type="primary"
-                            icon={<SendOutlined />}
-                            size="large"
-                            shape="circle"
-                            onClick={handleSend}
-                            disabled={!message.trim() || message.length > MAX_MESSAGE_LENGTH}
-                        />
-                    </Tooltip>
-
+                <Tooltip title="Загрузить файл">
+                    <Button
+                        icon={<CloudUploadOutlined />}
+                        size="large"
+                        shape="circle"
+                    />
+                </Tooltip>
+                <Tooltip title="Отправить">
+                    <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        size="large"
+                        shape="circle"
+                        onClick={sendMessage}  // Без параметров
+                        disabled={!message.trim() || message.length > MAX_MESSAGE_LENGTH}
+                    />
+                </Tooltip>
             </Space>
         </div>
     );

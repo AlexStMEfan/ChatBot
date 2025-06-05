@@ -1,24 +1,24 @@
-import React, { useEffect, useRef } from 'react';
-import { Card, Typography, Button, Tooltip, message as antdMessage, Avatar } from 'antd';
-import { CopyOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'; // Заменили на atomDark
-
-const { Paragraph } = Typography;
+import React, { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Avatar, message as antdMessage, Spin } from "antd";
+import { CopyOutlined, RobotOutlined, UserOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
 export type Message = {
-    role: 'user' | 'assistant';
+    role: "user" | "assistant";
     content: string;
+    timestamp?: string; // Добавленное поле для отображения времени
 };
 
 type ChatWindowProps = {
     messages: Message[];
+    themeMode: "light" | "dark";
 };
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, themeMode }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const isDark = themeMode === "dark";
 
     useEffect(() => {
         if (containerRef.current) {
@@ -26,91 +26,160 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages }) => {
         }
     }, [messages]);
 
-    const handleCopy = async (text: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            antdMessage.success('Скопировано!');
-        } catch {
-            antdMessage.error('Не удалось скопировать');
-        }
-    };
-
-    const renderers = {
-        code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '');
-            return !inline && match ? (
-                <SyntaxHighlighter style={atomDark} language={match[1]} PreTag="div" {...props}>  {/* Заменили atomOneDark на atomDark */}
-                    {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
-            ) : (
-                <code style={{ backgroundColor: '#f0f0f0', padding: '2px 4px', borderRadius: 4 }}>
-                    {children}
-                </code>
-            );
-        },
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            antdMessage.success("Скопировано!", 1.2);
+        }).catch(() => {
+            antdMessage.error("Ошибка при копировании");
+        });
     };
 
     return (
         <div
             ref={containerRef}
             style={{
-                height: '100%',
-                overflowY: 'auto',
-                padding: '16px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 16,
+                padding: 24,
+                overflowY: "auto",
+                height: "calc(100vh - 200px)",
+                background: isDark ? "#1a1a1a" : "#ffffff",
+                transition: "background 0.3s",
             }}
         >
-            {messages.map((msg, index) => {
-                const isUser = msg.role === 'user';
-                const backgroundColor = isUser ? '#1d8bf5' : '#fff';
-                const textColor = isUser ? '#fff' : '#000';
+            {messages.map((msg, i) => {
+                const isUser = msg.role === "user";
+                const isLast = i === messages.length - 1;
+                const timestamp = msg.timestamp || dayjs().format("HH:mm");
 
                 return (
                     <div
-                        key={index}
+                        key={i}
                         style={{
-                            display: 'flex',
-                            justifyContent: isUser ? 'flex-end' : 'flex-start',
-                            alignItems: 'flex-start',
-                            gap: 8,
+                            marginBottom: 20,
+                            display: "flex",
+                            justifyContent: isUser ? "flex-end" : "flex-start",
+                            animation: "fadeIn 0.4s ease forwards",
+                            opacity: 0,
                         }}
                     >
-                        {!isUser && <Avatar icon={<RobotOutlined />} />}
-                        <Card
+                        {!isUser && (
+                            <Avatar
+                                size="small"
+                                icon={<RobotOutlined />}
+                                style={{ marginRight: 8, backgroundColor: "#d9d9d9" }}
+                            />
+                        )}
+                        <div
                             style={{
-                                backgroundColor,
-                                maxWidth: '80%',
-                                color: textColor,
-                                borderRadius: 12,
-                                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                                border: '1px solid #f0f0f0',
-                                position: 'relative',
+                                position: "relative",
+                                maxWidth: "80%",
+                                padding: "10px 16px",
+                                borderRadius: 16,
+                                fontSize: 15,
+                                lineHeight: 1.5,
+                                wordBreak: "break-word",
+                                whiteSpace: "pre-wrap",
+                                backgroundColor: isUser
+                                    ? isDark ? "#0050b3" : "#e6f7ff"
+                                    : isDark ? "#2a2a2a" : "#f5f5f5",
+                                color: isUser
+                                    ? isDark ? "#ffffff" : "#0050b3"
+                                    : isDark ? "#f0f0f0" : "#000000",
+                                boxShadow: isDark
+                                    ? "0 1px 4px rgba(0,0,0,0.4)"
+                                    : "0 1px 4px rgba(0,0,0,0.1)",
                             }}
-                            bodyStyle={{ padding: '5px 16px' }}
                         >
-                            <Paragraph style={{ margin: 0, fontSize: 15, color: textColor }}>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={renderers}>
+                            {msg.role === "assistant" && (
+                                <button
+                                    onClick={() => handleCopy(msg.content)}
+                                    title="Скопировать"
+                                    style={{
+                                        position: "absolute",
+                                        top: 6,
+                                        right: 6,
+                                        background: "transparent",
+                                        border: "none",
+                                        color: isDark ? "#ccc" : "#666",
+                                        cursor: "pointer",
+                                        fontSize: 14,
+                                    }}
+                                >
+                                    <CopyOutlined />
+                                </button>
+                            )}
+
+                            {msg.role === "assistant" && msg.content.trim() === "" && isLast ? (
+                                <Spin size="small" />
+                            ) : msg.role === "assistant" ? (
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        code({ children }) {
+                                            return (
+                                                <code
+                                                    style={{
+                                                        background: isDark ? "#333" : "#eee",
+                                                        padding: "2px 4px",
+                                                        borderRadius: 4,
+                                                        fontSize: "0.9em",
+                                                    }}
+                                                >
+                                                    {children}
+                                                </code>
+                                            );
+                                        },
+                                        pre({ children }) {
+                                            return (
+                                                <pre
+                                                    style={{
+                                                        background: isDark ? "#222" : "#f6f6f6",
+                                                        padding: "12px",
+                                                        borderRadius: 8,
+                                                        overflowX: "auto",
+                                                    }}
+                                                >
+                          {children}
+                        </pre>
+                                            );
+                                        },
+                                    }}
+                                >
                                     {msg.content}
                                 </ReactMarkdown>
-                            </Paragraph>
-                            {!isUser && (
-                                <Tooltip title="Скопировать">
-                                    <Button
-                                        icon={<CopyOutlined />}
-                                        size="small"
-                                        type="text"
-                                        onClick={() => handleCopy(msg.content)}
-                                        style={{ position: 'absolute', top: 4, right: 4, color: '#999' }}
-                                    />
-                                </Tooltip>
+                            ) : (
+                                msg.content
                             )}
-                        </Card>
-                        {isUser && <Avatar icon={<UserOutlined />} />}
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: isDark ? "#888" : "#999",
+                                    marginTop: 6,
+                                    textAlign: "right",
+                                }}
+                            >
+                                {timestamp}
+                            </div>
+                        </div>
+                        {isUser && (
+                            <Avatar
+                                size="small"
+                                icon={<UserOutlined />}
+                                style={{ marginLeft: 8, backgroundColor: "#1677ff" }}
+                            />
+                        )}
                     </div>
                 );
             })}
+
+            <style>
+                {`
+          @keyframes fadeIn {
+            to {
+              opacity: 1;
+            }
+          }
+        `}
+            </style>
         </div>
     );
 };

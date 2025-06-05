@@ -29,8 +29,8 @@ const MainPage: React.FC = () => {
 
     const isDark = themeMode === 'dark';
 
-    // Функция для обновления сообщений в конкретном чате и синхронизации с локальным состоянием messages
     const updateChatMessages = useCallback((chatIndex: number, newMessages: Message[]) => {
+        console.log("updateChatMessages", chatIndex, newMessages);
         setChats(prev => {
             const updated = [...prev];
             updated[chatIndex] = { ...updated[chatIndex], messages: newMessages };
@@ -39,7 +39,6 @@ const MainPage: React.FC = () => {
         setMessages(newMessages);
     }, []);
 
-    // Создание нового чата: добавляем чат, выбираем его, обнуляем messages
     const handleCreateChat = useCallback(async (): Promise<string> => {
         const newChat: Chat = {
             id: crypto.randomUUID(),
@@ -57,7 +56,6 @@ const MainPage: React.FC = () => {
         return newChat.id;
     }, [chats.length]);
 
-    // Выбор чата: устанавливаем selectedChatIndex и messages из выбранного чата
     const handleSelectChat = useCallback((id: string) => {
         setChats(prevChats => {
             const index = prevChats.findIndex(chat => chat.id === id);
@@ -69,7 +67,6 @@ const MainPage: React.FC = () => {
         });
     }, []);
 
-    // Удаление чата: обновляем список, выбранный индекс и сообщения
     const handleDeleteChat = useCallback((id: string) => {
         setChats(prevChats => {
             const newChats = prevChats.filter(chat => chat.id !== id);
@@ -92,7 +89,6 @@ const MainPage: React.FC = () => {
         });
     }, [selectedChatIndex]);
 
-    // Переименование чата
     const handleRenameChat = useCallback((id: string, newName: string) => {
         setChats(prev =>
             prev.map(chat =>
@@ -101,7 +97,6 @@ const MainPage: React.FC = () => {
         );
     }, []);
 
-    // Отправка сообщения
     const handleSend = useCallback((text: string, chatId?: string) => {
         if (!text.trim()) return;
 
@@ -245,7 +240,10 @@ const MainPage: React.FC = () => {
                         }}
                     >
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <ChatWindow messages={messages} />
+                            <ChatWindow
+                                messages={messages}
+                                themeMode={themeMode}
+                            />
                         </div>
                         <div style={{ flexShrink: 0, padding: '16px 24px' }}>
                             <SendMessage
@@ -253,7 +251,6 @@ const MainPage: React.FC = () => {
                                 onCreateChat={handleCreateChat}
                                 activeChatId={activeChatId}
                                 themeMode={themeMode}
-                                model={model}
                             />
                         </div>
                     </Content>
