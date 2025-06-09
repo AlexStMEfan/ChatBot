@@ -44,8 +44,9 @@ const LoginPage: React.FC = () => {
                 backgroundColor: '#f5f5f5',
                 display: 'flex',
                 justifyContent: 'center',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 padding: 24,
+                paddingTop: 64,
                 overflow: 'auto',
             }}
         >
