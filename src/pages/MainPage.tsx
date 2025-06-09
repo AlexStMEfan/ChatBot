@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     Layout, Select, Button, Space, ConfigProvider, theme as antdTheme, Dropdown, Tooltip, message,
 } from 'antd';
@@ -19,6 +20,8 @@ export type Chat = {
 }
 
 const MainPage: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [collapsed, setCollapsed] = useState(false);
     const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
     const [model, setModel] = useState('chatgpt');
@@ -53,8 +56,10 @@ const MainPage: React.FC = () => {
             return updated;
         });
 
+        navigate(`/chat/${newChat.id}`);
+
         return newChat.id;
-    }, [chats.length]);
+    }, [chats.length, navigate]);
 
     const handleSelectChat = useCallback((id: string) => {
         setChats(prevChats => {
@@ -62,10 +67,11 @@ const MainPage: React.FC = () => {
             if (index !== -1) {
                 setSelectedChatIndex(index);
                 setMessages(prevChats[index].messages);
+                navigate(`/chat/${id}`);
             }
             return prevChats;
         });
-    }, []);
+    }, [navigate]);
 
     const handleDeleteChat = useCallback((id: string) => {
         setChats(prevChats => {
@@ -75,6 +81,7 @@ const MainPage: React.FC = () => {
                 if (selectedChatId === id) {
                     setSelectedChatIndex(null);
                     setMessages([]);
+                    navigate(`/`);
                 } else {
                     const newIndex = newChats.findIndex(chat => chat.id === selectedChatId);
                     setSelectedChatIndex(newIndex !== -1 ? newIndex : null);
@@ -87,7 +94,24 @@ const MainPage: React.FC = () => {
             }
             return newChats;
         });
-    }, [selectedChatIndex]);
+    }, [selectedChatIndex, navigate]);
+    React.useEffect(() => {
+        if (id && chats.length > 0) {
+            const index = chats.findIndex(chat => chat.id === id);
+            if (index !== -1) {
+                setSelectedChatIndex(index);
+                setMessages(chats[index].messages);
+            }
+        }
+    }, [id, chats]);
+
+    React.useEffect(() => {
+        if (!id && chats.length === 0) {
+            handleCreateChat().then((newChatId) => {
+                navigate(`/chat/${newChatId}`);
+            });
+        }
+    }, [id, chats.length, navigate, handleCreateChat]);
 
     const handleRenameChat = useCallback((id: string, newName: string) => {
         setChats(prev =>

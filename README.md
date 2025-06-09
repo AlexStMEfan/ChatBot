@@ -1,46 +1,94 @@
-# Getting Started with Create React App
+# ChatBot Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Приложение для общения с нейросетями, поддерживающее различные модели (ChatGPT, YandexGPT, GigaChat и другие), темную/светлую тему, авторизацию, а также экспорт чатов и командную работу.
 
-## Available Scripts
+## 🚀 Технологии
 
-In the project directory, you can run:
+- ⚛️ React 18+ + TypeScript
+- 🎨 Ant Design v5
+- 🌙 Поддержка темной/светлой темы
+- 🌐 React Router
+- 🔒 VK ID, Yandex 360, OAuth
+- 📦 Docker, Nginx
+- ☁️ Cloud.ru Evolution Container App
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## 📦 Установка и запуск
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### Локальный запуск
 
-### `npm test`
+```bash
+git clone https://github.com/your-org/chatbot.git
+cd chatbot
+npm install
+npm start
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Откройте [http://localhost:3000](http://localhost:3000) в браузере.
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Сборка для продакшена
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm run build
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Файлы будут собраны в папку `build/`. Для развёртывания можно использовать nginx или контейнеризацию через Docker.
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## 🐳 Docker
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+docker build -t chatbot .
+docker run -p 3000:80 chatbot
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## ⚙️ Сценарии
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+| Скрипт            | Описание                              |
+|------------------|---------------------------------------|
+| `npm start`       | Запуск dev-сервера                    |
+| `npm run build`   | Сборка продакшн-версии                |
+| `npm test`        | Запуск тестов                         |
+| `npm run eject`   | Извлечение конфигурации CRA (опасно)  |
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🧠 Поддерживаемые модели
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- OpenAI ChatGPT
+- YandexGPT
+- GigaChat
+- Qwen
+- DeepSeek (через OpenRouter)
+
+---
+
+## 📂 Структура проекта
+
+```
+src/
+├── components/      # Компоненты UI (Sidebar, ChatWindow, SendMessage)
+├── pages/           # Страницы (LoginPage, MainPage и т.д.)
+├── assets/          # Иконки, стили
+├── utils/           # Хелперы и утилиты
+└── App.tsx          # Основной роутинг
+```
+
+---
+
+## 🔐 Аутентификация
+
+- Вход через Yandex 360 (OAuth)
+- VK ID (OneTap)
+- Email + пароль
+- SSO (Single Sign-On)
+
+---
+
+## 📄 Лицензия
+
+[MIT](LICENSE)
